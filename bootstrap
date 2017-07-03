@@ -1,0 +1,21 @@
+#!/bin/bash
+
+function main() {
+  mkdir -p .out .bin
+  local compiler
+  if [[ -z "$@" ]] ; then
+      compiler=g++
+  else
+    compiler="$@"
+  fi
+  "$compiler" -c aa.cc -o .out/aa.o @.flags -include basic.h -include eden.h
+  "$compiler" -c eden.cc -o .out/eden.o @.flags
+  "$compiler" .out/aa.o .out/eden.o -o .bin/aa @.flags -lstdc++
+
+  # install in .local
+  mkdir -p $HOME/.local/bin
+  rm -f $HOME/.local/bin/aa
+  ln -s $PWD/.bin/aa $HOME/.local/bin/aa
+}
+
+main "$@"

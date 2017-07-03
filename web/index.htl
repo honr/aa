@@ -1,0 +1,11 @@
+(html
+ (head
+  (link :rel stylesheet :href "a.css"))
+
+ (body
+  (h1 "Hello World")
+
+  (div :class "contents"
+
+       (div :class "centered"
+            (p1 "some stuff")))))

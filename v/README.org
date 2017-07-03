@@ -1,0 +1,9 @@
+* v is for vendor (sometimes called "third party").
+
+* submodules:
+git clone https://github.com/google/googletest
+git clone https://github.com/google/gumbo-parser
+git clone https://github.com/google/grpc
+
+Use the following autotools based installation:
+./autogen.sh && configure --prefix=$HOME/c/.usr && make && make install

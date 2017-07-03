@@ -1,0 +1,133 @@
+;; -*- Mode: Clojure -*-
+
+;; Convention: If a target corresponds to the source file foo/bar/baz.cc, name
+;; the target baz.bar.foo (i.e., in reverse order of path components, with the
+;; extension dropped).  Additionally, if the target quax.baz.bar.foo is the
+;; most important target starting with quax.baz.bar (or while you are the
+;; first one), you can keep the target name shortened to quax.foo (i.e., the
+;; filename, with the top level directory as the next component).f
+
+{:acl []
+ :cflags ["-O3"
+          "-Wall"
+          "-Wcast-align"
+          ;; "-Wconversion"
+                                        ;--- "-Werror"
+          "-Wextra"
+          "-Wfloat-equal"
+          ;; "-Wformat=2"
+          "-Winit-self"
+          ;; "-Wmissing-format-attribute"
+          "-Wmissing-include-dirs"
+          "-Wodr"
+          "-Wold-style-cast"
+          "-Wredundant-decls"
+          "-Wuninitialized"
+          "-Wunreachable-code"
+          "-flto"
+          "-fno-exceptions"
+          "-pedantic"
+          "-std=c++1z"
+          "-fdata-sections"
+          "-ffunction-sections"
+          "-fno-strict-aliasing"
+          "-fno-ident"
+          "-fno-rtti"
+          "-fno-threadsafe-statics"
+          "-fvisibility-inlines-hidden"
+          "-pipe"
+          "-fvisibility=hidden"
+          "-Wno-unused-parameter"
+          "-Wno-missing-field-initializers"
+          "-fPIC"
+          "-fstack-protector-all"]
+
+ :lflags [;; "-Wconversion"
+          ;; "-Werror"
+          ;; "-Wformat=2"
+          ;; "-Wmissing-format-attribute"
+          "-flto"
+          "-fno-rtti"
+          "-pipe"]}
+
+foo (noop [bar baz zetta])
+bar (noop [quax])
+baz (noop [quax])
+quax (noop [])
+zetta (noop [])
+greet.hello (c++bin []
+                    {:src ["hello/greet.cc"]
+                     :inc ["iostream" "map" "string" "vector" "thread"]
+                     :lib ["stdc++"]})
+
+fae (c++bin []
+            {:src ["fae.cc"]
+             :inc ["basic.h"]
+             :lib ["stdc++"]})
+
+stuff:install (install [aa fae greet.hello])
+
+;; Doesn't work with LLVM, yet.
+;; tm.hello (c++bin []
+;;         {:src ["hello/tm.cc"]
+;;          :inc ["iostream" "map" "string" "vector" "thread"]
+;;          :cflags ["-pthread" "-Wmaybe-uninitialized" "-fgnu-tm"]
+;;          :lib ["stdc++"]
+;;          :lflags ["-fgnu-tm" "-pthread"]})
+
+;; cd v ; git clone https://github.com/google/googletest
+gtest-all (c++lib  []
+                   {:hdr ["v/googletest/googletest/include/gtest.h"]
+                    :src ["v/googletest/googletest/src/gtest-all.cc"]
+                    :cflags ["-isystem" "v/googletest/googletest/include"
+                             "-I" "v/googletest/googletest"
+                             "-pthread"]})
+gtest-main (c++lib  []
+                    {:hdr ["v/googletest/googletest/include/gtest.h"]
+                     :src ["v/googletest/googletest/src/gtest_main.cc"]
+                     :cflags ["-isystem" "v/googletest/googletest/include"
+                              "-I" "v/googletest/googletest"
+                              "-pthread"]})
+gmock-all (c++lib []
+                  {:hdr ["v/googletest/googlemock/include/gmock.h"]
+                   :src ["v/googletest/googlemock/src/gmock-all.cc"]
+                   :cflags ["-isystem" "v/googletest/googletest/include"
+                            "-I" "v/googletest/googletest"
+                            "-isystem" "v/googletest/googlemock/include"
+                            "-I" "v/googletest/googlemock"
+                            "-pthread"]})
+;; (shared-lib gmock [gtest-all gmock-all])
+;; ar -rv libgmock.a gtest-all.o gmock-all.o
+
+;; (c++lib gumbo []
+;;         {:hdr ["v/gumbo-parser/?"]})
+
+prettyprint.gumbo (c++bin []
+                          {:src ["v/gumbo-parser/examples/prettyprint.cc"]
+                           :cflags ["-I" ".usr/include"]
+                           :lflags ["-L" ".usr/lib"]
+                           :lib ["stdc++" "gumbo"]})
+
+eden (c++lib
+      []
+      {:hdr ["eden.h"] :src ["eden.cc"]})
+
+;; Test with $ aa eden-test && .bin/eden-test
+eden-test (c++bin
+           [eden gtest-all gtest-main gmock-all]
+           {:src ["eden-test.cc"]
+            :cflags ["-isystem" "v/googletest/googletest/include"
+                     "-I" "v/googletest/googletest"
+                     "-isystem" "v/googletest/googlemock/include"
+                     "-I" "v/googletest/googlemock"
+                     "-pthread"]
+            :inc ["eden.h"
+                  "basic.h"
+                  "gmock/gmock.h"
+                  "gtest/gtest.h"]
+            :lib ["pthread"]})
+
+aa (c++bin [eden]
+           {:src ["aa.cc"]
+            :inc ["basic.h" "eden.h"]
+            :lib ["stdc++"]})
