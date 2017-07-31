@@ -22,64 +22,12 @@
 //    the flags should be part of depending on a c++lib.  Or maybe the vendor
 //    (./v/...) libraries should only expose a single .h?  Or maybe they
 //    should be "installed" in ./.include ?
-// 7. Introduce a global config (/etc/aa/config) and most of the config
-//    namespace there.
-
-namespace config {
-static const string wsDir = "./";
-static const string outDir = wsDir + ".out/";
-static const string binDir = wsDir + ".bin/";
-// static const string compiler_program = "/usr/bin/g++";
-// static const string linker_program = "/usr/bin/g++";
-// static const string compiler_program = "/usr/bin/clang++-4.0";
-// static const string linker_program = "/usr/bin/clang++-4.0";
-static const string compiler_program = "/usr/bin/clang++";
-static const string linker_program = "/usr/bin/clang++";
-
-static const vector<string> default_cflags = {
-  "-O3",
-  "-Wall",
-  "-Wcast-align",
-  "-Wextra",
-  "-Wfloat-equal",
-  "-Winit-self",
-  "-Wmissing-include-dirs",
-  "-Wodr",
-  "-Wold-style-cast",
-  "-Wredundant-decls",
-  "-Wuninitialized",
-  "-Wunreachable-code",
-  "-flto",
-  "-fno-exceptions",
-  "-pedantic",
-  "-std=c++1z",
-  "-fdata-sections",
-  "-ffunction-sections",
-  "-fno-strict-aliasing",
-  "-fno-ident",
-  "-fno-rtti",
-  "-fno-threadsafe-statics",
-  "-fvisibility-inlines-hidden",
-  "-pipe",
-  "-fvisibility=hidden",
-  "-Wno-unused-parameter",
-  "-Wno-missing-field-initializers",
-  "-fPIC",
-  "-fstack-protector-all",
-};
-static const vector<string> default_ldflags = {
-  "-flto",
-  "-fno-rtti",
-  "-pipe",
-};
-static const string home = os::HomeDir();
-}  // ::config
 
 // TODO: Currently only the one src can be present.  Fix this.
 error compileCpp(const vector<string>& srcs,
                  const string& oFile,
-                 const map<string, eden::Node>& attrs,
-                 const map<string, eden::Node>& module_attrs) {
+                 const map<string, eden::Node>& attrs) {
+  const string compiler_program = attrs.at(":compiler").AsString();
   vector<string> flags;
   if (auto it = attrs.find(":inc"); it != attrs.end()) {
     for (auto x : it->second.AsNodes()) {
@@ -87,18 +35,14 @@ error compileCpp(const vector<string>& srcs,
       flags.push_back(x->AsString());
     }
   }
-  if (auto it = attrs.find(":cflags"); it != attrs.end()) {
+  if (auto it = attrs.find(":cflags-default"); it != attrs.end()) {
     for (auto x : it->second.AsNodes()) {
       flags.push_back(x->AsString());
     }
   }
-  if (auto it = module_attrs.find(":cflags"); it != module_attrs.end()) {
+  if (auto it = attrs.find(":cflags"); it != attrs.end()) {
     for (auto x : it->second.AsNodes()) {
       flags.push_back(x->AsString());
-    }
-  } else {
-    for (auto x : config::default_cflags) {
-      flags.push_back(x);
     }
   }
   string srcs_str;
@@ -111,24 +55,25 @@ error compileCpp(const vector<string>& srcs,
   }
   flags.push_back("-o");
   flags.push_back(oFile);
+
   // TODO: this condition should come from the command line, not from the AA
   // file.
   if (attrs.count(":mockingly")) {
     std::cout << "  compiling (mockingly) " + srcs_str
               << " => " << oFile << "\n";
-    flags.insert(flags.begin(), config::compiler_program);
+    flags.insert(flags.begin(), compiler_program);
     for (const auto& flag : flags) {
       std::cout << " " << flag;
     }
     std::cout << "\n";
   }
   std::cout << "  compiling " + srcs_str << " => " << oFile << "\n";
-  return os::ForkExecWait(config::compiler_program, flags);
+  return os::ForkExecWait(compiler_program, flags);
 }
 
 error linkCppBinary(const vector<string>& oFiles, const string& binFile,
-                    const map<string, eden::Node>& attrs,
-                    const map<string, eden::Node>& module_attrs) {
+                    const map<string, eden::Node>& attrs) {
+  const string linker_program = attrs.at(":linker").AsString();
   vector<string> flags(oFiles.begin(), oFiles.end());
   flags.push_back("-o");
   flags.push_back(binFile);
@@ -137,47 +82,38 @@ error linkCppBinary(const vector<string>& oFiles, const string& binFile,
       flags.push_back("-l" + x->AsString());
     }
   }
+  if (auto it = attrs.find(":lflags-default"); it != attrs.end()) {
+    for (auto x : it->second.AsNodes()) {
+      flags.push_back(x->AsString());
+    }
+  }
   if (auto it = attrs.find(":lflags"); it != attrs.end()) {
     for (auto x : it->second.AsNodes()) {
       flags.push_back(x->AsString());
     }
   }
-  if (auto it = module_attrs.find(":lflags"); it != module_attrs.end()) {
-    for (auto x : it->second.AsNodes()) {
-      flags.push_back(x->AsString());
-    }
-  } else {
-    for (auto x : config::default_ldflags) {
-      flags.push_back(x);
-    }
-  }
   std::cout << "  linking => " + binFile << "\n";
-  os::ForkExecWait(config::linker_program, flags);
+  os::ForkExecWait(linker_program, flags);
   return "";
 }
 
-class Resolver {
+class Resolver { // interface
  public:
-  Resolver(const vector<string>& deps,
-           const map<string, eden::Node>& attrs)
-      : deps_(deps), attrs_(attrs) {}
-  ~Resolver() {}
-  virtual error Run(const string& target,
-                    const map<string, eden::Node>& module_attrs) = 0;
-  const vector<string> deps_;
-
- protected:
-  const map<string, eden::Node> attrs_;
+  virtual error Resolve(const string& target) = 0;
+  virtual const vector<string>& Deps() = 0;
 };
 
 class CppbinResolver : public Resolver {
  public:
   CppbinResolver(const vector<string>& deps,
                  const map<string, eden::Node>& attrs)
-      : Resolver(deps, attrs) {}
+      : deps_(deps), attrs_(attrs) {}
   ~CppbinResolver() {}
-  error Run(const string& target,
-            const map<string, eden::Node>& module_attrs) override {
+  const vector<string>& Deps() override { return deps_; }
+
+  error Resolve(const string& target) override {
+    const string outDir = attrs_.at(":out-dir").AsString();
+    const string binDir = attrs_.at(":bin-dir").AsString();
     auto it_srcs = attrs_.find(":src");
     if (it_srcs == attrs_.end()) {
       return ":src key not found for target " + target;
@@ -189,32 +125,38 @@ class CppbinResolver : public Resolver {
       }
       srcs.push_back(node->AsString());
     }
-    const string oFile = config::outDir + target + ".o";
+    const string oFile = outDir + target + ".o";
     vector<string> oFiles = {oFile};
     for (const string& dep : deps_) {
-      oFiles.push_back(config::outDir + dep + ".o");
+      oFiles.push_back(outDir + dep + ".o");
     }
-    const string binFile = config::binDir + target;
-    error err = compileCpp(srcs, oFile, attrs_, module_attrs);
+    const string binFile = binDir + target;
+    error err = compileCpp(srcs, oFile, attrs_);
     if (err != "") {
       return "[compiling]" + err;
     }
-    err = linkCppBinary(oFiles, binFile, attrs_, module_attrs);
+    err = linkCppBinary(oFiles, binFile, attrs_);
     if (err != "") {
       return "[linking]" + err;
     }
     return "";
   }
+ private:
+  const vector<string> deps_;
+  const map<string, eden::Node> attrs_;
 };
 
 class CpplibResolver : public Resolver {
  public:
   CpplibResolver(const vector<string>& deps,
                  const map<string, eden::Node>& attrs)
-      : Resolver(deps, attrs) {}
+      : deps_(deps), attrs_(attrs) {}
   ~CpplibResolver() {}
-  error Run(const string& target,
-            const map<string, eden::Node>& module_attrs) override {
+  const vector<string>& Deps() override { return deps_; }
+
+  error Resolve(const string& target) override {
+    const string outDir = attrs_.at(":out-dir").AsString();
+
     auto it_srcs = attrs_.find(":src");
     if (it_srcs == attrs_.end()) {
       return ":src key not found for target " + target;
@@ -226,40 +168,52 @@ class CpplibResolver : public Resolver {
       }
       srcs.push_back(node->AsString());
     }
-    const string oFile = config::outDir + target + ".o";
-    error err = compileCpp(srcs, oFile, attrs_, module_attrs);
+    const string oFile = outDir + target + ".o";
+    error err = compileCpp(srcs, oFile, attrs_);
     if (err != "") {
       return "[compiling] " + err;
     }
     return "";
   }
+ private:
+  const vector<string> deps_;
+  const map<string, eden::Node> attrs_;
 };
 
 class InstallResolver : public Resolver {
  public:
   InstallResolver(const vector<string>& deps,
-                  const map<string, eden::Node>& attrs)
-      : Resolver(deps, attrs) {}
+                 const map<string, eden::Node>& attrs)
+      : deps_(deps), attrs_(attrs) {}
   ~InstallResolver() {}
-  error Run(const string& target,
-            const map<string, eden::Node>& module_attrs) override {
+
+  const vector<string>& Deps() override { return deps_; }
+
+  error Resolve(const string& target) override {
+    const string binDir = attrs_.at(":bin-dir").AsString();
+
     for (const string& dep : deps_) {
       // cp .bin/DEP ~/.local/bin/DEP
-      const string program_path = config::home + "/.local/bin/" + dep;
-      os::ForkExecWait("/bin/cp", {config::binDir + dep, program_path});
+      const string program_path = os::HomeDir() + "/.local/bin/" + dep;
+      os::ForkExecWait("/bin/cp", {binDir + dep, program_path});
       std::cout << "  install => " << program_path << "\n";
     }
     return "";
   }
+ private:
+  const vector<string> deps_;
+  const map<string, eden::Node> attrs_;
 };
 
 class NoopResolver : public Resolver {
  public:
-  NoopResolver(const vector<string>& deps, const map<string, eden::Node>& attrs)
-      : Resolver(deps, attrs) {}
+  NoopResolver() {}
   ~NoopResolver() {}
-  error Run(const string& target,
-            const map<string, eden::Node>& module_attrs) override {
+  const vector<string> deps_;  // empty
+
+  const vector<string>& Deps() override { return deps_; }
+
+  error Resolve(const string& target) override {
     std::cout << "  noop => " << target << "\n";
     return "";
   }
@@ -267,35 +221,46 @@ class NoopResolver : public Resolver {
 
 class Manager {
  public:
-  Manager(const eden::Node* defaults) : defaults_(defaults) {
-    std::cerr << "Defaults: " << eden::pprint(*defaults_) << "\n\n";
+  Manager(const eden::Node& global_attrs_root) {
+    global_attrs_.clear();
+    auto it = global_attrs_root.AsNodes().cbegin();
+    auto itEnd = global_attrs_root.AsNodes().cend();
+    if (it != itEnd && (*it)->IsMap()) {
+      std::cerr << processAttributes(**it, &global_attrs_);
+    }
   }
   ~Manager() {}
-  error Read(const eden::Node& spec_root);
+  error Read();
   error Resolve(const vector<string>& targets);
   const string ListTargets();
 
  private:
-  error processModuleAttributes(const eden::Node& attrs);
+  error processAttributes(const eden::Node& attrs_root,
+                          map<string, eden::Node>* attrs);
   error processRule(const string& targetname, const eden::Node& rule);
 
-  const eden::Node* defaults_; // not owned
+  map<string, eden::Node> global_attrs_;
   map<string, eden::Node> module_attrs_;
   map<string, unique_ptr<Resolver>> rules_;
 };
 
-error Manager::Read(const eden::Node& spec_root) {
+error Manager::Read() {
+  const string aaFile = global_attrs_[":aa"].AsString();
+  const string specStr = strings::ReadFileToString(aaFile);
+  std::unique_ptr<eden::Node> spec_root = eden::read(specStr);
+
   // populate list of rules and parameters from the node tree.
   // Node tree should look like the following:
   // (module MODULE-NAME {:ATTR-KEY ATTR-VALUE ...}
   //   (RULENAME TARGET [DEP1 DEP2 ...] {:PARAMETER VALUE}))
-  auto it = spec_root.AsNodes().cbegin();
-  auto itEnd = spec_root.AsNodes().cend();
+  auto it = spec_root->AsNodes().cbegin();
+  auto itEnd = spec_root->AsNodes().cend();
   if (it == itEnd) {
     return "";  // Empty spec.
   }
   if ((*it)->IsMap()) {
-    error err = processModuleAttributes(**it);
+    module_attrs_ = global_attrs_; // Copy.
+    error err = processAttributes(**it, &module_attrs_);
     if (err != "") {
       return err;
     }
@@ -315,10 +280,10 @@ error Manager::Read(const eden::Node& spec_root) {
   return "";
 }
 
-error Manager::processModuleAttributes(const eden::Node& attrs) {
-  auto it = attrs.AsNodes().cbegin();
-  auto itEnd = attrs.AsNodes().cend();
-  map<string, eden::Node> m;
+error Manager::processAttributes(const eden::Node& attrs_root,
+                                 map<string, eden::Node>* attrs) {
+  auto it = attrs_root.AsNodes().cbegin();
+  auto itEnd = attrs_root.AsNodes().cend();
   while (it != itEnd) {
     if (!(*it)->IsKeyword()) {
       return "Map key is expected to be a keyword here";
@@ -330,9 +295,8 @@ error Manager::processModuleAttributes(const eden::Node& attrs) {
     }
     const eden::Node& value = **it;
     ++it;
-    m[key] = value;
+    attrs->emplace(key, value);
   }
-  module_attrs_ = m;
   return "";
 }
 
@@ -349,7 +313,7 @@ Resolver* CreateResolverByName(const string& resolver_name,
     return new InstallResolver(deps, attrs);
   }
   if (resolver_name == "noop") {
-    return new NoopResolver(deps, attrs);
+    return new NoopResolver();
   }
   return nullptr;
 }
@@ -372,7 +336,7 @@ error Manager::processRule(const string& target, const eden::Node& rule) {
   }
 
   // Often, there is a map of rule attributes here.
-  map<string, eden::Node> rule_attrs;
+  map<string, eden::Node> attrs(module_attrs_.begin(), module_attrs_.end());
   if (++it != itEnd && (*it)->IsMap()) {
     auto m = (*it)->AsNodes().begin();
     auto mEnd = (*it)->AsNodes().end();
@@ -390,12 +354,12 @@ error Manager::processRule(const string& target, const eden::Node& rule) {
       }
       const eden::Node& value = **m;
       ++m;
-      rule_attrs[key] = value;
+      attrs[key] = value;
     }
   }
   // Dispatch on resolver_name.
   // TODO: The `if' branches should be replaced with a map or something.
-  Resolver* resolver = CreateResolverByName(resolver_name, deps, rule_attrs);
+  Resolver* resolver = CreateResolverByName(resolver_name, deps, attrs);
   if (resolver == nullptr) {
     return "Unknown rule resolver " + resolver_name;
   }
@@ -472,7 +436,7 @@ error Manager::Resolve(const vector<string>& targets) {
   map<string, set<string>> dependencies;
   for (const auto& kv : rules_) {
     const string& target = kv.first;
-    const vector<string>& deps = kv.second->deps_;
+    const vector<string>& deps = kv.second->Deps();
     dependencies[target].insert(deps.begin(), deps.end());
   }
   vector<set<string>> phases;
@@ -494,7 +458,7 @@ error Manager::Resolve(const vector<string>& targets) {
         continue;
       }
       Resolver* resolver = it->second.get();
-      error err1 = resolver->Run(target, module_attrs_);
+      error err1 = resolver->Resolve(target);
       if (err1 != "") {
         err += "[target=" + target + "] " + err1 + "\n";
       }
@@ -525,15 +489,11 @@ int main(int argc, char* argv[], char** envp) {
   os::Runtime runtime(argc, argv, envp);
   const vector<string>& targets = runtime.args();
 
-  const string aaFile = config::wsDir + "AA";
-  const string specStr = strings::ReadFileToString(aaFile);
-  std::unique_ptr<eden::Node> spec = eden::read(specStr);
-
-  std::unique_ptr<eden::Node> defaults = eden::read(
+  std::unique_ptr<eden::Node> global_attrs_root = eden::read(
       strings::ReadFileToString(os::HomeDir() + "/.config/aa/defaults"));
 
-  std::unique_ptr<Manager> m(new Manager(defaults.get()));
-  error err = m->Read(*spec);
+  std::unique_ptr<Manager> m(new Manager(*global_attrs_root));
+  error err = m->Read();
   if (err != "") {
     std::cerr << err << "\n";
   }
