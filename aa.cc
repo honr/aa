@@ -207,7 +207,7 @@ class InstallResolver : public Resolver {
 
 class NoopResolver : public Resolver {
  public:
-  NoopResolver() {}
+  NoopResolver(const vector<string>& deps) : deps_(deps) {}
   ~NoopResolver() {}
   const vector<string> deps_;  // empty
 
@@ -313,7 +313,7 @@ Resolver* CreateResolverByName(const string& resolver_name,
     return new InstallResolver(deps, attrs);
   }
   if (resolver_name == "noop") {
-    return new NoopResolver();
+    return new NoopResolver(deps);
   }
   return nullptr;
 }
