@@ -2,17 +2,17 @@
 
 ;; Convention: If a target corresponds to the source file foo/bar/baz.cc, name
 ;; the target baz.bar.foo (i.e., in reverse order of path components, with the
-;; extension dropped).  Additionally, if the target quax.baz.bar.foo is the
-;; most important target starting with quax.baz.bar (or while you are the
+;; source extension dropped).  Additionally, if the target quax.baz.bar.foo is
+;; the most important target starting with quax.baz.bar (or while you are the
 ;; first one), you can keep the target name shortened to quax.foo (i.e., the
-;; filename, with the top level directory as the next component).f
+;; filename, with the top level directory as the next component).
 
 {:acl []
  :cflags-default ["-O3"
                   "-Wall"
                   "-Wcast-align"
                   ;; "-Wconversion"
-                                        ;--- "-Werror"
+                  ;; --- "-Werror"
                   "-Wextra"
                   "-Wfloat-equal"
                   ;; "-Wformat=2"
@@ -108,13 +108,11 @@ prettyprint.gumbo (c++bin []
                            :lflags ["-L" ".usr/lib"]
                            :lib ["stdc++" "gumbo"]})
 
-eden (c++lib
-      []
+eden (c++lib []
       {:hdr ["eden.h"] :src ["eden.cc"]})
 
 ;; Test with $ aa eden-test && .bin/eden-test
-eden-test (c++bin
-           [eden gtest-all gtest-main gmock-all]
+eden-test (c++bin [eden gtest-all gtest-main gmock-all]
            {:src ["eden-test.cc"]
             :cflags ["-isystem" "v/googletest/googletest/include"
                      "-I" "v/googletest/googletest"

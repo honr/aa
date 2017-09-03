@@ -1,6 +1,8 @@
 # AA
 
-A ridiculously tiny and stupid build system.  Not meant for production usage.
+Side project: A ridiculously tiny and stupid build system.  Not meant for
+production usage.  Will be doubtlessly over-engineered where it doesn't matter
+and heavily under-featured where it would count.
 
 Start with:
 
@@ -12,5 +14,5 @@ aa greet.hello
 aa aa
 ```
 
-If you put the resulting `.bin/aa` in your path, you can edit an `AA` file in
-any directory and run `aa` there.
+If you put the resulting `.bin/aa` executable in your PATH, you can edit an
+`AA` file in any directory and run `aa` there.
