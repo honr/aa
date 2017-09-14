@@ -588,12 +588,11 @@ std::string escapeQuotes(const std::string& before) {
   std::string after;
   after.reserve(before.length() + 4);
   for (std::string::size_type i = 0; i < before.length(); ++i) {
-    switch (before[i]) {
-      case '"':
-      case '\\':
+    const char c = before[i];
+    if (c == '"' || c == '\\') {
         after += '\\';
-      default:
-        after += before[i];
+    } else {
+      after += c;
     }
   }
   return after;

@@ -1,7 +1,13 @@
 {:aa "./AA"
  :out-dir "./.out/"
  :bin-dir "./.bin/"
- :compiler "/usr/bin/clang++" ;; or "/usr/bin/g++" or "/usr/bin/clang++-4.0"
+ ;; other compilers:
+ ;;   "/usr/bin/clang++-4.0"
+ ;;   "/usr/bin/g++"
+ ;;   "/usr/bin/g++-7"
+ ;;   "/usr/bin/clang++"
+ :compiler "/usr/bin/clang++"
+ ;; Same options usually work for linker as well.
  :linker "/usr/bin/clang++" ;; or "/usr/bin/g++" or "/usr/bin/clang++-4.0"
  :cflags-default ["-O3"
                   "-Wall"
