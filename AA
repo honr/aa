@@ -27,7 +27,7 @@
                   "-flto"
                   "-fno-exceptions"
                   "-pedantic"
-                  "-std=c++1z"
+                  "-std=c++17"
                   "-fdata-sections"
                   "-ffunction-sections"
                   "-fno-strict-aliasing"
@@ -65,7 +65,7 @@ fae (c++bin []
              :inc ["basic.h"]
              :lib ["stdc++"]})
 
-stuff:install (install [aa fae greet.hello])
+stuff:install (install [aa])
 
 ;; Doesn't work with LLVM, yet.
 ;; tm.hello (c++bin []
