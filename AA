@@ -65,7 +65,7 @@ fae (c++bin []
              :inc ["basic.h"]
              :lib ["stdc++"]})
 
-stuff:install (install [aa])
+aa:install (install [aa])
 
 ;; Doesn't work with LLVM, yet.
 ;; tm.hello (c++bin []
