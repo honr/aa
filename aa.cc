@@ -10,18 +10,24 @@
 // 2. Move individual resolvers to a separate file.  Either one file per rule,
 //    or even a tiny set of functions in eden that expresses the resolvers.
 //
-// 3. Log output into a common place (in /var/log?).
+// 3. Log output into a common place (in /var/log?  Or perhaps in ~/.local/var/aa?).
 //
-// 4. Keep an installation transcript that can be used for reverting the
-//    installation.
+// 4. Keep an installation transcript that can be used for reverting steps of
+//    installations.
 //
 // 5. Use a chroot or some other kind of isolation for the "run" resolver (not
 //    implemented yet).
 //
-// 6. We need a way to avoid repeating, for example, cflags of gmock.  Perhaps
-//    the flags should be part of depending on a c++lib.  Or maybe the vendor
-//    (./v/...) libraries should only expose a single .h?  Or maybe they
-//    should be "installed" in ./.include ?
+// 6. Need a way to avoid repeating parameters, for example, cflags of gmock.
+//    Perhaps the flags should be part of depending on a c++lib.  Or maybe the
+//    vendor (./v/...) libraries should only expose a single .h?  Or maybe
+//    they should be "installed" in ./.include ?
+
+// Perhaps 1 and 6 indicate we need a better DSL?
+
+// "Compiler"/"linker" programs are essentially modelled `execve's.  The DSL
+// should be able to express common invokations (std{in,out,err}, args,
+// side-effect output files including temporary outputs (.o, .log, etc.).
 
 // TODO: Currently only the one src can be present.  Fix this.
 error compileCpp(const vector<string>& srcs,
