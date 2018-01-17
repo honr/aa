@@ -24,7 +24,7 @@
                   "-flto"
                   "-fno-exceptions"
                   "-pedantic"
-                  "-std=c++1z"
+                  "-std=c++17"
                   "-fdata-sections"
                   "-ffunction-sections"
                   "-fno-strict-aliasing"
